@@ -2,6 +2,7 @@ import json
 import traceback
 import re
 from textblob import *
+from senti_get import RateSentiment
 import csv
 import requests
 
@@ -9,13 +10,26 @@ check_class = [" Adults with Special Needs ", " Chronic Fatigue Syndrome ", " Co
                " Emphysema ", " Eye Care ", " General Health ", " General Surgery ", " Hemorrhoids ",
                " Occupational Health &amp; Safety ", " Radiology  ", " Stress ", " Swine Flu ", " Undiagnosed Symptoms ",
                " Vitamin D ", " Vitamins &amp; Supplements "]
-feature_list = ["CWC", "CS", "AP", "AS", "VP", "VS", "TWC", "TCS",
-                "TAP", "TAS", "TVP", "TVS", "C1", "C2", "C3", "C4",
-                "C5", "C6", "C7", "C8", "C9", "C10", "C11", "C12",
-                "C13", "C14", "C15", "C16", "A", "MEM", "NN", "FN",
-                "PN", "SN", "FNDC", "FNBC", "FNEC", "FNCC", "FNLC", "FNP",
-                "CNDC", "CNBC", "CNEC", "CNCC", "CNLC", "CNP", "NNDC", "NNBC",
-                "NNEC", "NNCC", "NNLC", "NNP", "AB", "GFIC", "AN"]
+# feature_list = ["CWC", "CS", "AP", "AS", "VP", "VS", "TWC", "TCS",
+#                 "TAP", "TAS", "TVP", "TVS", "C1", "C2", "C3", "C4",
+#                 "C5", "C6", "C7", "C8", "C9", "C10", "C11", "C12",
+#                 "C13", "C14", "C15", "C16", "A", "MEM", "NN", "FN",
+#                 "PN", "SN", "FNDC", "FNBC", "FNEC", "FNCC", "FNLC", "FNP",
+#                 "CNDC", "CNBC", "CNEC", "CNCC", "CNLC", "CNP", "NNDC", "NNBC",
+#                 "NNEC", "NNCC", "NNLC", "NNP", "AB", "GFIC", "AN"]
+feature_list = ["CWC", "CS", "AP", "AS", 
+                "TWC", "TCS", "TAP", "TAS",
+                "C1", "C2", "C3", "C4", 
+                "C5", "C6", "C7", "C8", 
+                "C9", "C10", "C11", "C12",
+                "C13", "C14", "C15", "C16",
+                "A", "MEM", "NN", "FN",
+                "PN", "SN", "FNDC", "FNBC", 
+                "FNEC", "FNCC", "FNLC", "FNP",
+                "CNDC", "CNBC", "CNEC", "CNCC", 
+                "CNLC", "CNP", "NNDC", "NNBC",
+                "NNEC", "NNCC", "NNLC", "NNP",
+                "AB", "LTIME", "AN"]
 def content_cleaning(content):
     content = content.replace("&#39;", "'")
     content = content.replace("&nbsp;", " ")
@@ -100,14 +114,38 @@ def get_content_feature(content):
     return result, fog
 
 
+def gen_new_context_feature(content):
+    result = []
+    blob = TextBlob(content)
+    sentences = len(blob.sentences)
+    word_count = len(re.findall(" ", content, re.S)) + 1
+    result.append(word_count)
+    result.append(sentences)
+    sum1 = 0
+    sum2 = 0
+    for sentence in blob.sentences:
+        pos, neg = RateSentiment(str(sentence))
+        emotion = pos - neg - 2
+        polarity = pos + neg
+        sum1 += emotion
+        sum2 += polarity
+
+    avg_emotion = sum1 / sentences
+    avg_polarity = sum2 / sentences
+    result.append(avg_emotion)
+    result.append(avg_polarity)
+    return result
+
+
+
 def cmu_dict_load():
-    vowels_text = open("vowels.txt", "r", encoding="utf-8")
+    vowels_text = open("../url_list/vowels.txt", "r", encoding="utf-8")
     line = vowels_text.readline()
     vowels_text.close()
     line = line.strip()
     vowels = line.split(" ")
     cmu_dict = {}
-    cmu_dict_text = open("cmd_dict.txt", "r", encoding="utf=8")
+    cmu_dict_text = open("../url_list/cmd_dict.txt", "r", encoding="utf=8")
     while True:
         line = cmu_dict_text.readline()
         if not line:
@@ -125,22 +163,22 @@ def cmu_dict_load():
 
 
 if __name__ == "__main__":
-    file = open("C:\\Users\\嘉彤\\Desktop\\project\\online health\\url_list\\General Health\\General -Health-Question.txt", "r")
+    file = open("../url_list/General Health/General -Health-Question.txt", "r")
     error_log = open("error.log", "w")
-    out_csv = csv.writer(open("feature_csv_20190108.csv", "w", newline=""))
+    out_csv = csv.writer(open("feature_csv_20200802.csv", "w", newline=""))
     out_csv.writerow(feature_list)
     j = 0
     Feature = {}
     cmu_dict = cmu_dict_load()
     for f in feature_list:
         Feature[f] = []
-    friend = open("C:\\Users\\嘉彤\\Desktop\\project\\online health\\url_list\\General Health\\Friend_Parameter.json", "r")
+    friend = open("../url_list/General Health/Friend_Parameter.json", "r")
     friend = json.load(friend)
-    comment = open("C:\\Users\\嘉彤\\Desktop\\project\\online health\\url_list\\General Health\\Commenter_Parameter.json", "r")
+    comment = open("../url_list/General Health/Commenter_Parameter.json", "r")
     comment = json.load(comment)
-    note = open("C:\\Users\\嘉彤\\Desktop\\project\\online health\\url_list\\General Health\\Notes_Parameter.json", "r")
+    note = open("../url_list/General Health/Notes_Parameter.json", "r")
     note = json.load(note)
-    answer_times = open("C:\\Users\\嘉彤\\Desktop\\project\\online health\\url_list\\answer_time.json", "r")
+    answer_times = open("../url_list/answer_time.json", "r")
     answer_times = json.load(answer_times)
     last_category = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     while True:
@@ -157,11 +195,17 @@ if __name__ == "__main__":
         try:
             single_feature = []
             question_content = content_cleaning(question["question"])
-            content_feature, fog = get_content_feature(question_content)
-            # (6) --- word_count, sentences, avg_p, avg_s, var_p, var_s
+            # content_feature, fog = get_content_feature(question_content)
+            # x (6) --- word_count, sentences, avg_p, avg_s, var_p, var_s
+            content_feature = gen_new_context_feature(question_content)
+            # (4) --- word_count, sentences, avg_emotion, avg_p
+
             title = re.search("(.*?)-", question["title"], re.S).group(1)
-            title_feature, dummy_fog = get_content_feature(title)
-            # (6) --- word_count, sentences, avg_p, avg_s, var_p, var_s
+            # title_feature, dummy_fog = get_content_feature(title)
+            # x (6) --- word_count, sentences, avg_p, avg_s, var_p, var_s
+            title_feature = gen_new_context_feature(title)
+            # (4) --- word_count, sentences, avg_emotion, avg_p
+
             cate = re.findall("-(.*?)-", question["title"], re.S)[-1]
             category = get_class(cate, check_class)
             if check_category(category):
@@ -173,7 +217,7 @@ if __name__ == "__main__":
             single_feature.extend(title_feature)
             single_feature.extend(category)
             asker = question['asker']
-            with open("C:\\Users\\嘉彤\\Desktop\\project\\online health\\url_list\\General Health\\PEOPLE\\"
+            with open("../url_list/General Health/PEOPLE/"
                       + asker + ".txt", "r") as ask:
                 user = json.load(ask)
                 age = user["age"]
@@ -230,8 +274,13 @@ if __name__ == "__main__":
             #     fog = float(fogs[0])
             # except:
             #     fog = 0
-            print("fog:" + str(fog))
-            single_feature.append(fog)
+            # print("fog:" + str(fog))
+            # single_feature.append(fog)
+            # answer_time = max(list(map(int, question["answer_time"])))
+
+            # 1545000000 stands for 2019.1.1
+            duration_time = (1545000000 - time) / 3600 / 24 / 30
+            single_feature.append(duration_time)
             try:
                 single_feature.append(int(question["answer_number"]))
             except:
@@ -249,6 +298,6 @@ if __name__ == "__main__":
             error_log.write("%d\n"%j)
             error_log.flush()
         j = j + 1
-    output = open("Feature_20190108.json", "w")
+    output = open("Feature_20200802.json", "w")
     json.dump(Feature, output)
     output.close()
